@@ -14,7 +14,6 @@ class Controller_Assets extends Controller
         try {
             $content = $a->generate_file($type, $files, array('type' => $type, 'minify' => TRUE));
         } catch (Exception $e) {
-            Dumper::dump($e);
             $this->response->status(404);
             $this->response->send_headers();
             $this->response->body("File Not Found! 404'd");
@@ -22,7 +21,7 @@ class Controller_Assets extends Controller
         }
         
         $content_type = $a->resolve_content_type($type);        
-        $assets_dir   = $a->get_assets_dir($type);
+        $assets_dir   = $a->get_output_dir($type);
         
         $package_file_path = $assets_dir . $package . '.' . $type;
                 

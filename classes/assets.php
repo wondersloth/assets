@@ -16,8 +16,6 @@ class Assets
     
     private $js;
     
-    private $manifest_file_path;
-    
     public function __construct()
     {
         $this->config = Kohana::config('assets');
@@ -26,10 +24,11 @@ class Assets
         $this->js = array();
         
         // Load Manifest
+        $is_success = $this->load_manifest();
         
-        // $this->load_manifest();
-        
-        $this->build();
+        if (!$is_success || $this->config->get('is_dev')) {
+            $this->build_manifest();
+        }
     }
     
     public static function instance()
@@ -85,7 +84,7 @@ class Assets
     public function get_package_url($type, $package = 'default')
     {
         if (!isset($this->$type[$package])) {
-            throw new AssetsException("Invalid $type package name.");
+            throw new AssetsException("Invalid $type package name '$package'.");
         }
         
         $files = $this->$type[$package];
@@ -107,17 +106,32 @@ class Assets
         return $this->get_package_url('js', $package);
     }
     
-    public function get_assets_dir($type)
+    public function get_package($type, $package = 'default')
+    {
+        return isset($this->$type[$package]) ? $this->$type[$package] : array();
+    }
+    
+    public function get_css_package($package = 'default')
+    {
+        return $this->get_package('css', $package);
+    }
+    
+    public function get_js_package($package = 'default')
+    {
+        return $this->get_package('js', $package);
+    }
+    
+    public function get_output_dir($type)
     {
         return $this->config->get("dir_output");
     }
     
-    public function get_css_assets_dir()
+    public function get_css_output_dir()
     {
         return $this->get_assets_dir('css');
     }
     
-    public function get_js_assets_dir()
+    public function get_js_output_dir()
     {
         return $this->get_assets_dir('js');
     }
@@ -189,7 +203,7 @@ class Assets
         
         $dir = $this->config->get($key);
         
-        $content = "/* Generated $type file. TS " . date('YMd H:i:s') . " */";
+        $content = "/* Generated $type file. TS " . date('YMd H:i:s') . " */\n";
         
         foreach ($files as $file) {
             $content .= "\n/*** File: $file ***/\n";
@@ -213,14 +227,12 @@ class Assets
         return $this->generate_file('js', $files, $args);
     }
     
-    private function load_manifest()
+    public function build_manifest()
     {
-        $this->manifest = Cache::instance()->get('assets_manifest');
-        return $this;
-    }
-    
-    public function build()
-    {        
+        if ($this->config->get('enable_logging')) {
+            Log::instance()->add(Log::NOTICE, '[Assets] Building manifest started.');
+        }
+        
         $dir_source = $this->config->get('dir_source');
         $dir_output = $this->config->get('dir_output');
         
@@ -283,6 +295,35 @@ class Assets
         
         Cache::instance()->set('assets_manifest', $this->manifest);
         
+        if ($this->config->get('enable_logging')) {
+            Log::instance()->add(Log::NOTICE, '[Assets] Building manifest finished.');
+        }
+        
         return $this;
+    }
+    
+    public function delete_manifest () {
+        if ($this->config->get('enable_logging')) {
+            Log::instance()->write('[Assets] Deleting manifest.');
+        }
+        
+        Cache::instance()->delete('assets_manifest');
+        
+        return TRUE;
+    }
+    
+    public function load_manifest()
+    {
+        $manifest = Cache::instance()->get('assets_manifest', FALSE);
+        
+        if ($manifest === FALSE) {
+            if ($this->config->get('enable_logging')) {
+                Log::instance()->add(Log::WARNING,'[Assets] Failed to load manifest.');
+            }
+            
+            return FALSE;
+        }
+        
+        return $this->manifest = $manifest;
     }
 }
