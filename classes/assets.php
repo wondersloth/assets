@@ -8,20 +8,20 @@ require_once MODPATH . 'assets/lib/jsmin/jsmin.php';
 
 class Assets
 {
-    const FILE_SEPERATOR = '-';
+    const FILE_PACKAGE_SEPERATOR = '-';
         
     private static $instance;
     
-    private $css;
-    
-    private $js;
+    private $packages;
     
     public function __construct()
     {
         $this->config = Kohana::config('assets');
         
-        $this->css = array();
-        $this->js = array();
+        $this->packages = array(
+            'css' => array(),
+            'js'  => array(),            
+        );
         
         // Load Manifest
         $is_success = $this->load_manifest();
@@ -47,17 +47,19 @@ class Assets
             throw new AssetsException('Unable to add asset. Invalid type.');
         }
         
-        if (!isset($this->$type[$package])) {
-            $this->$type[$package] = array();
+        $this->packages[$type]; // Get the css packages.
+    
+        if (!isset($this->packages[$type][$package])) {
+            $this->packages[$type][$package] = array();
         }
         
-        array_push($this->$type[$package], $path);
+        $this->packages[$type][$package][] = $path;
         
         return self::instance();
     }
     
     public function add_css($path, $package = 'default')
-    {
+    {        
         return $this->add('css', $path, $package);
     }
     
@@ -67,8 +69,8 @@ class Assets
     }
     
     public function has_files($type, $package = 'default')
-    {
-        return !empty($this->$type[$package]);
+    {   
+        return !empty($this->packages[$type][$package]);
     }
     
     public function has_css_files($package = 'default')
@@ -83,11 +85,11 @@ class Assets
     
     public function get_package_url($type, $package = 'default')
     {
-        if (!isset($this->$type[$package])) {
+        if (!isset($this->packages[$type])) {
             throw new AssetsException("Invalid $type package name '$package'.");
         }
         
-        $files = $this->$type[$package];
+        $files = $this->packages[$type][$package];
         
         $package = $this->encode_package($files);
         
@@ -109,6 +111,21 @@ class Assets
     public function get_package($type, $package = 'default')
     {
         return isset($this->$type[$package]) ? $this->$type[$package] : array();
+    }
+    
+    public function get_package_keys($type)
+    {
+        return array_keys($this->packages[$type]);
+    }
+    
+    public function get_css_package_keys()
+    {
+        return $this->get_package_keys('css');
+    }
+    
+    public function get_js_package_keys()
+    {
+        return $this->get_package_keys('js');
     }
     
     public function get_css_package($package = 'default')
@@ -146,12 +163,12 @@ class Assets
             $hashes[] = $this->get_hash_by_file($file);
         }
         
-        return implode(self::FILE_SEPERATOR, $hashes);
+        return implode(self::FILE_PACKAGE_SEPERATOR, $hashes);
     }
     
     public function decode_package($package)
     {
-        $hashes = explode(self::FILE_SEPERATOR, $package);
+        $hashes = explode(self::FILE_PACKAGE_SEPERATOR, $package);
         
         $files = array();
         
