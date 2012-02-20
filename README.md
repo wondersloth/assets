@@ -21,6 +21,8 @@ What Assets does:
 
  * Kohana 3.1+
  * Cache module enabled and working in some fashion.
+ * A single directory where all the CSS/JS file are sourced.
+ * An output directory that exists that doesn't overlap with the existing CSS/JS directory.
 
 ## Usage
 
@@ -125,7 +127,7 @@ This is the modules config:
     return array(
         'is_minify'      => TRUE,                // Enables minifcation
         'dir_source'     => DOCROOT . 'static/', // Source directory to build assets and manifest from
-        'dir_output'     => DOCROOT . 'assets/', // Directory to write the packages or minified files to.
+        'dir_build'      => DOCROOT . 'build/',  // Directory to write the packages or minified files to.
         'enable_logging' => TRUE,                // Enables logging
         'is_dev'         => TRUE,                // If enabled it will rebuild the manifest every time on instantiation.
     );

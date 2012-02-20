@@ -251,7 +251,7 @@ class Assets
         }
         
         $dir_source = $this->config->get('dir_source');
-        $dir_output = $this->config->get('dir_output');
+        $dir_output = $this->config->get('dir_build');
         
         $iterator   = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir_source));
         
