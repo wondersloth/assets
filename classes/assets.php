@@ -8,20 +8,17 @@ require_once MODPATH . 'assets/lib/jsmin/jsmin.php';
 
 class Assets
 {
-    const FILE_PACKAGE_SEPERATOR = '-';
+    const FILE_SEPERATOR = '-';
         
     private static $instance;
-    
-    private $packages;
+    private $data;
     
     public function __construct()
     {
         $this->config = Kohana::config('assets');
         
-        $this->packages = array(
-            'css' => array(),
-            'js'  => array(),            
-        );
+        $this->data['css'] = array();
+        $this->data['js']  = array();
         
         // Load Manifest
         $is_success = $this->load_manifest();
@@ -47,19 +44,17 @@ class Assets
             throw new AssetsException('Unable to add asset. Invalid type.');
         }
         
-        $this->packages[$type]; // Get the css packages.
-    
-        if (!isset($this->packages[$type][$package])) {
-            $this->packages[$type][$package] = array();
+        if (!isset($this->data[$type][$package])) {
+            $this->data[$type][$package] = array();
         }
         
-        $this->packages[$type][$package][] = $path;
+        array_push($this->data[$type][$package], $path);
         
         return self::instance();
     }
     
     public function add_css($path, $package = 'default')
-    {        
+    {
         return $this->add('css', $path, $package);
     }
     
@@ -69,8 +64,8 @@ class Assets
     }
     
     public function has_files($type, $package = 'default')
-    {   
-        return !empty($this->packages[$type][$package]);
+    {
+        return !empty($this->data[$type][$package]);
     }
     
     public function has_css_files($package = 'default')
@@ -85,11 +80,11 @@ class Assets
     
     public function get_package_url($type, $package = 'default')
     {
-        if (!isset($this->packages[$type])) {
+        if (!isset($this->data[$type][$package])) {
             throw new AssetsException("Invalid $type package name '$package'.");
         }
         
-        $files = $this->packages[$type][$package];
+        $files = $this->data[$type][$package];
         
         $package = $this->encode_package($files);
         
@@ -108,24 +103,31 @@ class Assets
         return $this->get_package_url('js', $package);
     }
     
+    public function get_package_list($type, $package_priority = array())
+    {
+        $packages = array_keys($this->data[$type]);
+        
+        if (!empty($package_priority)) {
+            $packages = array_unique(array_merge($package_priority, $packages));
+        }
+        
+        return $packages;
+    }
+    
+    public function get_css_package_list($package_priority = array())
+    {
+        return $this->get_package_list('css', $package_priority);
+    }
+    
+    public function get_js_package_list($package_priority = array())
+    {
+        return $this->get_package_list('js', $package_priority);
+    }
+    
     public function get_package($type, $package = 'default')
     {
-        return isset($this->$type[$package]) ? $this->$type[$package] : array();
-    }
-    
-    public function get_package_keys($type)
-    {
-        return array_keys($this->packages[$type]);
-    }
-    
-    public function get_css_package_keys()
-    {
-        return $this->get_package_keys('css');
-    }
-    
-    public function get_js_package_keys()
-    {
-        return $this->get_package_keys('js');
+        $packages = &$this->data[$type];
+        return array_key_exists($package, $packages) ? $packages[$package] : array();
     }
     
     public function get_css_package($package = 'default')
@@ -138,19 +140,19 @@ class Assets
         return $this->get_package('js', $package);
     }
     
-    public function get_output_dir($type)
+    public function get_build_dir($type)
     {
-        return $this->config->get("dir_output");
+        return $this->config->get("dir_build");
     }
     
-    public function get_css_output_dir()
+    public function get_css_build_dir()
     {
-        return $this->get_assets_dir('css');
+        return $this->get_build_dir('css');
     }
     
-    public function get_js_output_dir()
+    public function get_js_build_dir()
     {
-        return $this->get_assets_dir('js');
+        return $this->get_build_dir('js');
     }
     
     public function encode_package($files)
@@ -163,12 +165,12 @@ class Assets
             $hashes[] = $this->get_hash_by_file($file);
         }
         
-        return implode(self::FILE_PACKAGE_SEPERATOR, $hashes);
+        return implode(self::FILE_SEPERATOR, $hashes);
     }
     
     public function decode_package($package)
     {
-        $hashes = explode(self::FILE_PACKAGE_SEPERATOR, $package);
+        $hashes = explode(self::FILE_SEPERATOR, $package);
         
         $files = array();
         
@@ -214,9 +216,20 @@ class Assets
         return $content_type;
     }
     
-    public function generate_file($type, $files, $args = array())
+    public function generate_package_file($type, $package)
     {
-        $key = $this->config->get('is_minify') ? "dir_output" : "dir_source";
+        $files             = $this->decode_package($package);        
+        $content           = $this->generate_file($type, $files);
+        $package_file_path = $this->get_build_dir($type) . $package . '.' . $type;
+        
+        file_put_contents($package_file_path, $content);
+        
+        return $package_file_path;
+    }
+    
+    public function generate_file($type, $files)
+    {
+        $key = $this->config->get('is_minify') ? "dir_build" : "dir_source";
         
         $dir = $this->config->get($key);
         
@@ -224,7 +237,11 @@ class Assets
         
         foreach ($files as $file) {
             $content .= "\n/*** File: $file ***/\n";
-            $file = str_ireplace(".$type", ".min.$type", $file);
+            
+            if ($this->config->get('is_minify')) {
+                $file = str_ireplace(".$type", ".min.$type", $file);
+            }
+            
             
             $full_path = $dir . $file;
             
@@ -251,7 +268,7 @@ class Assets
         }
         
         $dir_source = $this->config->get('dir_source');
-        $dir_output = $this->config->get('dir_build');
+        $dir_build = $this->config->get('dir_build');
         
         $iterator   = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir_source));
         
@@ -286,7 +303,7 @@ class Assets
                 
                 $min_rel_path = str_ireplace(".$type", ".min.$type", $rel_path);
                 
-                $min_full_path = $dir_output . $min_rel_path;
+                $min_full_path = $dir_build . $min_rel_path;
 
                 $path_info = pathinfo($min_full_path);
                 $dir = $path_info['dirname'];

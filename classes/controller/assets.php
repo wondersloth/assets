@@ -7,28 +7,20 @@ class Controller_Assets extends Controller
         $r     = $this->request;
         $type  = $r->param('type');
         $package  = $r->param('package');
-        $a        = Assets::instance();
-        
-        $files = $a->decode_package($package);
+        $ass      = Assets::instance();
         
         try {
-            $content = $a->generate_file($type, $files, array('type' => $type, 'minify' => TRUE));
+            $file_path = $ass->generate_package_file($type, $package);
         } catch (Exception $e) {
             $this->response->status(404);
             $this->response->send_headers();
-            $this->response->body("File Not Found! 404'd");
+            $this->response->body("Package Not Found! 404'd");
             return;
         }
         
-        $content_type = $a->resolve_content_type($type);        
-        $assets_dir   = $a->get_output_dir($type);
+        $content = file_get_contents($file_path);
         
-        $package_file_path = $assets_dir . $package . '.' . $type;
-                
-        file_put_contents($package_file_path, $content);
-        // var_dump($assets_dir, $package);
-        
-        $this->response->headers('Content-Type', $content_type);
+        $this->response->headers('Content-Type', $ass->resolve_content_type($type));
         $this->response->body($content);
     }
 }
