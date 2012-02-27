@@ -23,7 +23,7 @@ class Assets
         // Load Manifest
         $is_success = $this->load_manifest();
         
-        if (!$is_success || $this->config->get('is_dev')) {
+        if (!$is_success || $this->config->get('always_build_manifest')) {
             $this->build_manifest();
         }
     }
