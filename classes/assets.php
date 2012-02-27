@@ -17,6 +17,11 @@ class Assets
     {
         $this->config = Kohana::config('assets');
         
+        // Confirm that the build directory is writeable
+        if (!is_writable($this->config['dir_build'])) {
+            throw new Kohana_Exception ($this->config['dir_build'].' must be writable.');
+        }
+        
         $this->data['css'] = array();
         $this->data['js']  = array();
         
